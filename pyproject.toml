@@ -1,0 +1,19 @@
+[project]
+name = "horseshoe_gibbs"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "mory22k", email = "mory22k@dc.tohoku.ac.jp" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "ipykernel>=6.29.5",
+    "matplotlib>=3.9.2",
+    "numpy>=1.26.4",
+    "torch>=2.5.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
