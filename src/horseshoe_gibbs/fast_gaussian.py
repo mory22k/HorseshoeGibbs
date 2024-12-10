@@ -17,7 +17,7 @@ def fast_sampling_gaussian_posterior(
         Y: torch.Tensor, shape (n,)
             Target values.
         L_diag: torch.Tensor, shape (p,)
-            Diagonal of the lower triangular matrix L.
+            Vector of diagonal elements of the matrix L.
         sigma: torch.Tensor, shape ()
             Standard deviation of the noise.
     """
