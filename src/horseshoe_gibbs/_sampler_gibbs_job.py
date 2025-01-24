@@ -16,7 +16,6 @@ import torch
 from ._sampler_gibbs import (
     _sample_lamb2,
     _sample_beta,
-    sum_duplicate_rows_sqrt,
 )
 from ._sampler_gibbs_improved import _sample_sigma2
 
@@ -47,7 +46,15 @@ def pdf_tau2_posterior(
     return log_p
 
 
-def _sample_tau2(tau2, lamb2, X, y, stepsize_tau, a_prior=torch.tensor(0.5), b_prior=torch.tensor(0.5)):
+def _sample_tau2(
+    tau2,
+    lamb2,
+    X,
+    y,
+    stepsize_tau,
+    a_prior=torch.tensor(0.5),
+    b_prior=torch.tensor(0.5),
+):
     for _ in range(1):
         tau2_new = torch.distributions.LogNormal(0, stepsize_tau).sample()
         log_p_new = pdf_tau2_posterior(tau2_new, lamb2, X, y, a_prior, b_prior)

@@ -18,7 +18,6 @@ from ._sampler_gibbs import (
     _sample_tau2,
     _sample_lamb2,
     _sample_beta,
-    sum_duplicate_rows_sqrt,
 )
 
 
@@ -28,7 +27,7 @@ def _sample_sigma2(tau2, lamb2, X, y, a_prior=0.5, b_prior=0.5):
     concentration = a_prior + n / 2
     try:
         XDX_In_inv_y = torch.linalg.solve(XD @ X.T + torch.eye(n), y)
-    except torch._C._LinAlgError as e:
+    except torch.linalg.LinAlgError:
         XDX_In_inv_y = torch.linalg.lstsq(XD @ X.T + torch.eye(n), y).solution
     rate = b_prior + y @ XDX_In_inv_y / 2
     try:

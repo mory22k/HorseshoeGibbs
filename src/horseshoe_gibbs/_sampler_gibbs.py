@@ -15,25 +15,6 @@
 import torch
 from torch.distributions import InverseGamma
 
-def sum_duplicate_rows_sqrt(X: torch.Tensor, y: torch.Tensor):
-    unique_rows, inverse_indices = torch.unique(X, dim=0, return_inverse=True)
-    counts = torch.bincount(inverse_indices)
-
-    X_scaled = torch.zeros_like(unique_rows)
-    y_scaled = torch.zeros(unique_rows.size(0), dtype=y.dtype)
-
-    for i in range(unique_rows.size(0)):
-        group_mask = (inverse_indices == i)
-        c_i = counts[i].float()  # 出現回数（floatに変換）
-
-        # Scale the design matrix by sqrt(c_i)
-        X_scaled[i] = unique_rows[i] * torch.sqrt(c_i)
-
-        # Scale the target values by sqrt(c_i)
-        y_scaled[i] = y[group_mask].sum(dim=0) / torch.sqrt(c_i)
-
-    return X_scaled, y_scaled
-
 
 def fast_sampling_gaussian_posterior(
     X: torch.Tensor, y: torch.Tensor, L_diag: torch.Tensor, sigma: float
@@ -69,7 +50,7 @@ def fast_sampling_gaussian_posterior(
     right_hand = y - X @ u - v
     try:
         linalg_solution = torch.linalg.solve(left_hand, right_hand)
-    except torch._C._LinAlgError as e:
+    except torch.linalg.LinAlgError:
         linalg_solution = torch.linalg.lstsq(left_hand, right_hand).solution
     # params = u + L @ X.T @ linalg_solution
     params = u + XL.T @ linalg_solution
