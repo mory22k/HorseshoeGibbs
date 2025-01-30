@@ -58,7 +58,7 @@ def _sample_tau2(
     b_prior=torch.tensor(0.5),
 ):
     for _ in range(1):
-        tau2_new = torch.distributions.LogNormal(0, stepsize_tau).sample()
+        tau2_new = torch.distributions.LogNormal(torch.log(tau2), stepsize_tau).sample()
         log_p_new = pdf_tau2_posterior(tau2_new, lamb2, X, y, a_prior, b_prior)
         log_p_current = pdf_tau2_posterior(tau2, lamb2, X, y, a_prior, b_prior)
         log_ratio = log_p_new - log_p_current + torch.log(tau2_new) - torch.log(tau2)
