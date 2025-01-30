@@ -53,6 +53,7 @@ def fast_sampling_gaussian_posterior(
     try:
         linalg_solution = torch.linalg.solve(left_hand, right_hand)
     except torch.linalg.LinAlgError:
+        tqdm.write("Solving linear system failed while sampling beta.")
         linalg_solution = torch.linalg.lstsq(left_hand, right_hand).solution
     # params = u + L @ X.T @ linalg_solution
     params = u + XL.T @ linalg_solution
@@ -65,43 +66,55 @@ def _sample_beta(sigma2, tau2, lamb2, X, y):
     return beta_new
 
 
-def _sample_sigma2(beta, tau2, lamb2, X, y, a_prior=0.5, n_prior=0.5):
+def _sample_sigma2(beta, tau2, lamb2, X, y, current_sigma2, a_prior=0.5, b_prior=0.5):
     n, p = X.shape
     residual = y - X @ beta
 
     concentration = a_prior + (n + p) / 2
-    rate = n_prior + torch.sum(residual**2) / 2 + torch.sum(beta**2 / lamb2) / tau2 / 2
-    sigma2_new = InverseGamma(concentration, rate).sample()
+    rate = b_prior + torch.sum(residual**2) / 2 + torch.sum(beta**2 / lamb2) / tau2 / 2
+    try:
+        sigma2_new = InverseGamma(concentration, rate).sample()
+    except ValueError:
+        tqdm.write("Sampling sigma2 from InvGamma failed.")
+        return current_sigma2
     return sigma2_new
 
 
-def _sample_lamb2(beta, sigma2, tau2, lamb2):
+def _sample_lamb2(beta, sigma2, tau2, current_lamb2):
     concentration = 1.0
-    rate = 1.0 + 1.0 / lamb2
+    rate = 1.0 + 1.0 / current_lamb2
     nu = InverseGamma(concentration, rate).sample()
 
     concentration = 1.0
     rate = 1.0 / nu + beta**2 / sigma2 / tau2 / 2
-    lamb2_new = InverseGamma(concentration, rate).sample()
+    try:
+        lamb2_new = InverseGamma(concentration, rate).sample()
+    except ValueError:
+        tqdm.write("Sampling lamb2 from InvGamma failed.")
+        return current_lamb2
     return lamb2_new
 
 
-def _sample_tau2(beta, sigma2, tau2, lamb2):
+def _sample_tau2(beta, sigma2, current_tau2, lamb2):
     p = beta.shape[0]
 
     concentration = 1.0
-    rate = 1.0 + 1.0 / tau2
+    rate = 1.0 + 1.0 / current_tau2
     xi = InverseGamma(concentration, rate).sample()
 
     concentration = (p + 1.0) / 2
     rate = 1.0 / xi + torch.sum(beta**2 / lamb2) / sigma2 / 2
-    tau2_new = InverseGamma(concentration, rate).sample()
+    try:
+        tau2_new = InverseGamma(concentration, rate).sample()
+    except ValueError:
+        tqdm.write("Sampling tau2 from InvGamma failed.")
+        return current_tau2
     return tau2_new
 
 
 def _markov_transition(beta, sigma2, tau2, lamb2, X, y):
     tau2_new = _sample_tau2(beta, sigma2, tau2, lamb2)
-    sigma2_new = _sample_sigma2(beta, tau2_new, lamb2, X, y)
+    sigma2_new = _sample_sigma2(beta, tau2_new, lamb2, X, y, current_sigma2=sigma2)
     beta_new = _sample_beta(sigma2_new, tau2_new, lamb2, X, y)
     lamb2_new = _sample_lamb2(beta_new, sigma2_new, tau2_new, lamb2)
 

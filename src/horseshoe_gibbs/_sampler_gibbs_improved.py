@@ -23,25 +23,27 @@ from tqdm import tqdm
 import warnings
 
 
-def _sample_sigma2(tau2, lamb2, X, y, a_prior=0.5, b_prior=0.5):
+def _sample_sigma2(tau2, lamb2, X, y, current_sigma2, a_prior=0.5, b_prior=0.5):
     n = X.shape[0]
     XD = lamb2 * tau2 * X
     concentration = a_prior + n / 2
     try:
         XDX_In_inv_y = torch.linalg.solve(XD @ X.T + torch.eye(n), y)
     except torch.linalg.LinAlgError:
+        tqdm.write("Solving linear system failed while sampling sigma2.")
         XDX_In_inv_y = torch.linalg.lstsq(XD @ X.T + torch.eye(n), y).solution
     rate = b_prior + y @ XDX_In_inv_y / 2
     try:
         sigma2_new = InverseGamma(concentration, rate).sample()
     except ValueError:
-        sigma2_new = torch.tensor(1.0)
+        tqdm.write("Sampling sigma2 from InvGamma failed.")
+        return current_sigma2
     return sigma2_new
 
 
 def _markov_transition(beta, sigma2, tau2, lamb2, X, y):
     tau2_new = _sample_tau2(beta, sigma2, tau2, lamb2)
-    sigma2_new = _sample_sigma2(tau2_new, lamb2, X, y)
+    sigma2_new = _sample_sigma2(tau2_new, lamb2, X, y, current_sigma2=sigma2)
     beta_new = _sample_beta(sigma2_new, tau2_new, lamb2, X, y)
     lamb2_new = _sample_lamb2(beta_new, sigma2_new, tau2_new, lamb2)
 

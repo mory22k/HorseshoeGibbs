@@ -68,9 +68,9 @@ def _sample_tau2(
     return tau2
 
 
-def _markov_transition(tau2, lamb2, X, y, stepsize_tau=0.1):
+def _markov_transition(tau2, lamb2, X, y, current_sigma2, stepsize_tau=0.1):
     tau2_new = _sample_tau2(tau2, lamb2, X, y, stepsize_tau)
-    sigma2_new = _sample_sigma2(tau2_new, lamb2, X, y)
+    sigma2_new = _sample_sigma2(tau2_new, lamb2, X, y, current_sigma2=current_sigma2)
     beta_new = _sample_beta(sigma2_new, tau2_new, lamb2, X, y)
     lamb2_new = _sample_lamb2(beta_new, sigma2_new, tau2_new, lamb2)
 
@@ -114,12 +114,13 @@ def sample(
     tau2 = tau2_init if tau2_init is not None else torch.tensor(0.1)
     lamb2 = lamb2_init if lamb2_init is not None else torch.ones(p)
 
+    sigma2 = torch.tensor(1.0) # This value is used only if the first iteration is failed.
     iterator = range(n_warmup)
     if show_progress_bar:
         iterator = tqdm(iterator)
         iterator.set_description("Warmup  ")
     for i in iterator:
-        beta, sigma2, tau2, lamb2 = _markov_transition(tau2, lamb2, X, y, stepsize_tau)
+        beta, sigma2, tau2, lamb2 = _markov_transition(tau2, lamb2, X, y, current_sigma2=sigma2, stepsize_tau=stepsize_tau)
         if debug:
             if i % 10 == 0:
                 residual = y - X @ beta
@@ -135,7 +136,7 @@ def sample(
         iterator = tqdm(iterator)
         iterator.set_description("Sampling")
     for i in iterator:
-        beta, sigma2, tau2, lamb2 = _markov_transition(tau2, lamb2, X, y, stepsize_tau)
+        beta, sigma2, tau2, lamb2 = _markov_transition(tau2, lamb2, X, y, current_sigma2=sigma2, stepsize_tau=stepsize_tau)
         betas[i] = beta
         sigma2s[i] = sigma2
         lamb2s[i] = lamb2
