@@ -14,6 +14,8 @@
 
 import torch
 from torch.distributions import InverseGamma
+from tqdm import tqdm
+import warnings
 
 
 def fast_sampling_gaussian_posterior(
@@ -115,6 +117,7 @@ def sample(
     sigma2_init=None,
     tau2_init=None,
     lamb2_init=None,
+    show_progress_bar=True,
     debug=False,
 ):
     """
@@ -130,32 +133,45 @@ def sample(
         sigma2_init (torch.Tensor, optional): Initial value of the noise variance. Defaults to None.
         tau2_init (torch.Tensor, optional): Initial value of the tau2. Defaults to None.
         lamb2_init (torch.Tensor, optional): Initial value of the lamb2. Defaults to None.
+        show_progress_bar (bool, optional): Whether to show the progress bar. Defaults to True.
         debug (bool, optional): Whether to print debug information. Defaults to False.
 
     Returns:
         tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: betaficients, noise variance, tau2, lamb2.
     """
 
-    n, p = X.shape
+    if show_progress_bar and debug:
+        warnings.warn("Progress bar is set to True, but debug information is also set to True. Progress bar will be disabled.")
+        show_progress_bar = False
+
+    p = X.shape[1]
 
     beta = beta_init if beta_init is not None else torch.zeros(p)
-    sigma2 = sigma2_init if sigma2_init is not None else 1.0
-    tau2 = tau2_init if tau2_init is not None else 1.0
+    sigma2 = sigma2_init if sigma2_init is not None else torch.tensor(1.0)
+    tau2 = tau2_init if tau2_init is not None else torch.tensor(0.1)
     lamb2 = lamb2_init if lamb2_init is not None else torch.ones(p)
 
-    betas = torch.zeros(n_iter, p)
-    sigma2s = torch.zeros(n_iter)
-    lamb2s = torch.zeros(n_iter, p)
-    tau2s = torch.zeros(n_iter)
-
-    for i in range(n_warmup):
+    iterator = range(n_warmup)
+    if show_progress_bar:
+        iterator = tqdm(iterator)
+        iterator.set_description("Warmup  ")
+    for i in iterator:
         beta, sigma2, tau2, lamb2 = _markov_transition(beta, sigma2, tau2, lamb2, X, y)
         if debug:
             if i % 10 == 0:
                 residual = y - X @ beta
                 print(f"Warmup | {i:4}/{n_warmup}")
 
-    for i in range(n_iter):
+    betas = torch.zeros(n_iter, p)
+    sigma2s = torch.zeros(n_iter)
+    lamb2s = torch.zeros(n_iter, p)
+    tau2s = torch.zeros(n_iter)
+
+    iterator = range(n_iter)
+    if show_progress_bar:
+        iterator = tqdm(iterator)
+        iterator.set_description("Sampling")
+    for i in iterator:
         beta, sigma2, tau2, lamb2 = _markov_transition(beta, sigma2, tau2, lamb2, X, y)
         betas[i] = beta
         sigma2s[i] = sigma2

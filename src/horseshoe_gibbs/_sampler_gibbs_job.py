@@ -18,6 +18,8 @@ from ._sampler_gibbs import (
     _sample_beta,
 )
 from ._sampler_gibbs_improved import _sample_sigma2
+from tqdm import tqdm
+import warnings
 
 
 def logpdf_tau2_prior(tau2: torch.Tensor):
@@ -83,6 +85,7 @@ def sample(
     tau2_init=None,
     lamb2_init=None,
     stepsize_tau=0.1,
+    show_progress_bar=True,
     debug=False,
 ):
     """
@@ -101,24 +104,37 @@ def sample(
     Returns:
         tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: Coefficients, noise variance, tau2, lamb2.
     """
-    n, p = X.shape
 
-    tau2 = tau2_init if tau2_init is not None else torch.tensor(1.0)
+    if show_progress_bar and debug:
+        warnings.warn("Progress bar is set to True, but debug information is also set to True. Progress bar will be disabled.")
+        show_progress_bar = False
+
+    p = X.shape[1]
+
+    tau2 = tau2_init if tau2_init is not None else torch.tensor(0.1)
     lamb2 = lamb2_init if lamb2_init is not None else torch.ones(p)
 
-    betas = torch.zeros(n_iter, p)
-    sigma2s = torch.zeros(n_iter)
-    tau2s = torch.zeros(n_iter)
-    lamb2s = torch.zeros(n_iter, p)
-
-    for i in range(n_warmup):
+    iterator = range(n_warmup)
+    if show_progress_bar:
+        iterator = tqdm(iterator)
+        iterator.set_description("Warmup  ")
+    for i in iterator:
         beta, sigma2, tau2, lamb2 = _markov_transition(tau2, lamb2, X, y, stepsize_tau)
         if debug:
             if i % 10 == 0:
                 residual = y - X @ beta
                 print(f"Warmup | {i:4}/{n_warmup}")
 
-    for i in range(n_iter):
+    betas = torch.zeros(n_iter, p)
+    sigma2s = torch.zeros(n_iter)
+    tau2s = torch.zeros(n_iter)
+    lamb2s = torch.zeros(n_iter, p)
+
+    iterator = range(n_iter)
+    if show_progress_bar:
+        iterator = tqdm(iterator)
+        iterator.set_description("Sampling")
+    for i in iterator:
         beta, sigma2, tau2, lamb2 = _markov_transition(tau2, lamb2, X, y, stepsize_tau)
         betas[i] = beta
         sigma2s[i] = sigma2
